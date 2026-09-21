@@ -15,11 +15,11 @@ st.caption("Interactive analysis of order volume, timing, and kitchen performanc
 
 # ---------- Data loading ----------
 @st.cache_data
-def load_data(file_or_path):
+def load_data(file_or_path, sheet_name):
     if isinstance(file_or_path, str):
-        df = pd.read_excel(file_or_path, sheet_name="Actually Cleaned Data")
+        df = pd.read_excel(file_or_path, sheet_name=sheet_name)
     else:
-        df = pd.read_excel(file_or_path, sheet_name="Actually Cleaned Data")
+        df = pd.read_excel(file_or_path, sheet_name=sheet_name)
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df["Number_Of_Orders"] = pd.to_numeric(df["Number_Of_Orders"], errors="coerce").fillna(0)
     df["Avg_No_Items"] = pd.to_numeric(df["Avg_No_Items"], errors="coerce")
@@ -47,6 +47,21 @@ except Exception:
         st.info("Upload the Excel workbook in the sidebar to begin.")
         st.stop()
     df = load_data(uploaded)
+
+uploaded = st.sidebar.file_uploader(
+    "Upload restaurant Excel file",
+    type=["xlsx"]
+)
+
+if uploaded:
+    excel_file = pd.ExcelFile(uploaded)
+
+    selected_sheet = st.sidebar.selectbox(
+        "Choose data sheet",
+        excel_file.sheet_names
+    )
+
+    df = load_data(uploaded, selected_sheet)
 
 # ---------- Sidebar ----------
 st.sidebar.header("Filters")
