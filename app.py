@@ -39,21 +39,24 @@ def load_data(file_or_path, sheet_name):
     df["Date_Label"] = df["Date"].dt.strftime("%b %d, %Y")
     return df.dropna(subset=["Date"])
 
-
 uploaded = st.sidebar.file_uploader(
     "Upload restaurant Excel file",
     type=["xlsx"]
 )
 
-if uploaded:
-    excel_file = pd.ExcelFile(uploaded)
+if uploaded is None:
+    st.info("Upload the Excel workbook in the sidebar to begin.")
+    st.stop()
 
-    selected_sheet = st.sidebar.selectbox(
-        "Choose data sheet",
-        excel_file.sheet_names
-    )
+excel_file = pd.ExcelFile(uploaded)
 
-    df = load_data(uploaded, selected_sheet)
+selected_sheet = st.sidebar.selectbox(
+    "Choose data sheet",
+    excel_file.sheet_names
+)
+
+df = load_data(uploaded, selected_sheet)
+
 
 # ---------- Sidebar ----------
 st.sidebar.header("Filters")
