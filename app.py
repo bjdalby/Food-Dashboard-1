@@ -39,14 +39,6 @@ def load_data(file_or_path, sheet_name):
     df["Date_Label"] = df["Date"].dt.strftime("%b %d, %Y")
     return df.dropna(subset=["Date"])
 
-try:
-    df = load_data("Subway Database (1).xlsx")
-except Exception:
-    uploaded = st.sidebar.file_uploader("Upload the restaurant Excel file", type=["xlsx"])
-    if uploaded is None:
-        st.info("Upload the Excel workbook in the sidebar to begin.")
-        st.stop()
-    df = load_data(uploaded)
 
 uploaded = st.sidebar.file_uploader(
     "Upload restaurant Excel file",
