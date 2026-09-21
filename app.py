@@ -55,7 +55,41 @@ selected_sheet = st.sidebar.selectbox(
     excel_file.sheet_names
 )
 
-df = load_data(uploaded, selected_sheet)
+# ---------- Column Mapping ----------
+
+raw_df = pd.read_excel(
+    uploaded,
+    sheet_name=selected_sheet
+)
+
+st.sidebar.subheader("Match Your Columns")
+
+available_columns = ["— Not available —"] + list(raw_df.columns)
+
+date_column = st.sidebar.selectbox(
+    "Date column",
+    available_columns
+)
+
+time_column = st.sidebar.selectbox(
+    "Time column",
+    available_columns
+)
+
+orders_column = st.sidebar.selectbox(
+    "Orders column",
+    available_columns
+)
+
+items_column = st.sidebar.selectbox(
+    "Items per order column",
+    available_columns
+)
+
+bump_column = st.sidebar.selectbox(
+    "Bump time column",
+    available_columns
+)
 
 
 # ---------- Sidebar ----------
