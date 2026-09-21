@@ -91,6 +91,61 @@ bump_column = st.sidebar.selectbox(
     available_columns
 )
 
+# ---------- Standardize selected columns ----------
+
+if date_column == "— Not available —" or orders_column == "— Not available —":
+    st.warning("Please select at least a Date column and an Orders column.")
+    st.stop()
+
+df = raw_df.copy()
+
+df["Date"] = pd.to_datetime(
+    df[date_column],
+    errors="coerce"
+)
+
+df["Number_Of_Orders"] = pd.to_numeric(
+    df[orders_column],
+    errors="coerce"
+).fillna(0)
+
+if items_column != "— Not available —":
+    df["Avg_No_Items"] = pd.to_numeric(
+        df[items_column],
+        errors="coerce"
+    )
+else:
+    df["Avg_No_Items"] = None
+
+if bump_column != "— Not available —":
+    df["Avg_Bump_Time"] = pd.to_numeric(
+        df[bump_column],
+        errors="coerce"
+    )
+else:
+    df["Avg_Bump_Time"] = None
+
+if time_column != "— Not available —":
+    df["Time_Period"] = df[time_column].astype(str)
+else:
+    df["Time_Period"] = ""
+
+df["Day_Of_Week"] = df["Date"].dt.day_name().str[:3]
+
+df["Hour"] = pd.to_numeric(
+    df["Time_Period"]
+    .str.extract(r"(\d+):\d+")[0],
+    errors="coerce"
+)
+
+df["Hour"] = df["Hour"].fillna(0).astype(int)
+
+df["Month"] = df["Date"].dt.strftime("%b")
+df["Month_Num"] = df["Date"].dt.month
+df["Date_Label"] = df["Date"].dt.strftime("%b %d, %Y")
+
+df = df.dropna(subset=["Date"])
+
 
 # ---------- Sidebar ----------
 st.sidebar.header("Filters")
