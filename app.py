@@ -13,31 +13,266 @@ st.set_page_config(
 st.title("🍽️ Restaurant Order Analytics")
 st.caption("Interactive analysis of order volume, timing, and kitchen performance.")
 
-# ---------- Data loading ----------
-@st.cache_data
-def load_data(file_or_path, sheet_name):
-    if isinstance(file_or_path, str):
-        df = pd.read_excel(file_or_path, sheet_name=sheet_name)
-    else:
-        df = pd.read_excel(file_or_path, sheet_name=sheet_name)
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df["Number_Of_Orders"] = pd.to_numeric(df["Number_Of_Orders"], errors="coerce").fillna(0)
-    df["Avg_No_Items"] = pd.to_numeric(df["Avg_No_Items"], errors="coerce")
-    df["Avg_Bump_Time"] = pd.to_numeric(df["Avg_Bump_Time"], errors="coerce")
-    df["Low_Bump"] = pd.to_numeric(df["Low_Bump"], errors="coerce")
-    df["High_Bump"] = pd.to_numeric(df["High_Bump"], errors="coerce")
-    df["Day_Of_Week"] = df["Day_Of_Week"].fillna("")
-    df["Hour"] = pd.to_numeric(
-        df["Time_Period"].astype(str).str.extract(r"(\d+):\d+")[0],
+# ---------- Data loading & automatic detection ----------
+
+def find_column(df, keywords):
+    """Find the most likely column based on its name."""
+    columns = list(df.columns)
+
+    # Exact matches first
+    for keyword in keywords:
+        for column in columns:
+            if str(column).strip().lower() == keyword.lower():
+                return column
+
+    # Partial matches
+    for keyword in keywords:
+        for column in columns:
+            if keyword.lower() in str(column).strip().lower():
+                return column
+
+    return None
+
+
+def detect_columns(df):
+    """Automatically identify common restaurant data columns."""
+
+    return {
+        "date": find_column(
+            df,
+            [
+                "date",
+                "order date",
+                "business date",
+                "transaction date",
+                "order_date",
+                "business_date",
+            ],
+        ),
+
+        "time": find_column(
+            df,
+            [
+                "time",
+                "order time",
+                "transaction time",
+                "order_time",
+                "transaction_time",
+                "time period",
+                "time_period",
+            ],
+        ),
+
+        "orders": find_column(
+            df,
+            [
+                "orders",
+                "number of orders",
+                "number_of_orders",
+                "order count",
+                "order_count",
+                "transactions",
+                "transaction count",
+                "total orders",
+                "total_orders",
+            ],
+        ),
+
+        "items": find_column(
+            df,
+            [
+                "items",
+                "items per order",
+                "avg items",
+                "average items",
+                "avg_no_items",
+                "average items per order",
+            ],
+        ),
+
+        "bump": find_column(
+            df,
+            [
+                "bump time",
+                "bump_time",
+                "avg bump time",
+                "average bump time",
+                "avg_bump_time",
+                "kitchen time",
+                "prep time",
+                "preparation time",
+            ],
+        ),
+    }
+
+
+def prepare_data(df, detected):
+    """Convert different restaurant formats into the dashboard format."""
+
+    data = df.copy()
+
+    # ---------- Date ----------
+
+    date_col = detected["date"]
+
+    if date_col is None:
+        for column in data.columns:
+            converted = pd.to_datetime(
+                data[column],
+                errors="coerce"
+            )
+
+            if converted.notna().mean() >= 0.70:
+                date_col = column
+                detected["date"] = column
+                break
+
+    if date_col is None:
+        return None, "I couldn't identify a date column."
+
+    date_values = pd.to_datetime(
+        data[date_col],
         errors="coerce"
     )
-    # Convert 12-hour-looking times to a useful numeric hour where possible.
-    # The source uses labels such as "8:00 - 8:14", so the extracted hour is sufficient.
-    df["Hour"] = df["Hour"].fillna(0).astype(int)
-    df["Month"] = df["Date"].dt.strftime("%b")
-    df["Month_Num"] = df["Date"].dt.month
-    df["Date_Label"] = df["Date"].dt.strftime("%b %d, %Y")
-    return df.dropna(subset=["Date"])
+
+    # ---------- Time ----------
+
+    time_col = detected["time"]
+
+    if time_col is not None:
+
+        time_values = pd.to_datetime(
+            data[time_col],
+            errors="coerce"
+        )
+
+        if time_values.notna().mean() >= 0.70:
+
+            # Time column contains full datetime values
+            if time_values.dt.hour.notna().any():
+                date_values = date_values.fillna(
+                    time_values.dt.normalize()
+                )
+
+                hour_values = time_values.dt.hour
+
+            else:
+                hour_values = pd.Series(
+                    index=data.index,
+                    dtype="float64"
+                )
+
+        else:
+
+            # Try extracting the hour from values such as:
+            # 8:00 - 8:14
+            # 14:30
+            # 2:30 PM
+
+            hour_values = pd.to_numeric(
+                data[time_col]
+                .astype(str)
+                .str.extract(r"(\d{1,2})[:.]")[0],
+                errors="coerce"
+            )
+
+    else:
+
+        # The date column may contain both date and time.
+        combined_values = pd.to_datetime(
+            data[date_col],
+            errors="coerce"
+        )
+
+        hour_values = combined_values.dt.hour
+
+    # ---------- Orders ----------
+
+    orders_col = detected["orders"]
+
+    if orders_col is not None:
+
+        data["Number_Of_Orders"] = pd.to_numeric(
+            data[orders_col],
+            errors="coerce"
+        ).fillna(0)
+
+    else:
+
+        # If each row represents one order,
+        # treat each row as one order.
+        data["Number_Of_Orders"] = 1
+
+    # ---------- Items ----------
+
+    items_col = detected["items"]
+
+    if items_col is not None:
+
+        data["Avg_No_Items"] = pd.to_numeric(
+            data[items_col],
+            errors="coerce"
+        )
+
+    else:
+
+        data["Avg_No_Items"] = pd.NA
+
+    # ---------- Bump time ----------
+
+    bump_col = detected["bump"]
+
+    if bump_col is not None:
+
+        data["Avg_Bump_Time"] = pd.to_numeric(
+            data[bump_col],
+            errors="coerce"
+        )
+
+    else:
+
+        data["Avg_Bump_Time"] = pd.NA
+
+    # ---------- Standard dashboard columns ----------
+
+    data["Date"] = date_values
+
+    data["Hour"] = pd.to_numeric(
+        hour_values,
+        errors="coerce"
+    )
+
+    data["Hour"] = data["Hour"].fillna(0).astype(int)
+
+    data["Day_Of_Week"] = (
+        data["Date"]
+        .dt.day_name()
+        .str[:3]
+    )
+
+    data["Month"] = (
+        data["Date"]
+        .dt.strftime("%b")
+    )
+
+    data["Month_Num"] = (
+        data["Date"]
+        .dt.month
+    )
+
+    data["Date_Label"] = (
+        data["Date"]
+        .dt.strftime("%b %d, %Y")
+    )
+
+    data = data.dropna(
+        subset=["Date"]
+    )
+
+    return data, None
+
+
+# ---------- Upload Excel file ----------
 
 uploaded = st.sidebar.file_uploader(
     "Upload restaurant Excel file",
@@ -45,8 +280,13 @@ uploaded = st.sidebar.file_uploader(
 )
 
 if uploaded is None:
-    st.info("Upload the Excel workbook in the sidebar to begin.")
+    st.info(
+        "Upload the Excel workbook in the sidebar to begin."
+    )
     st.stop()
+
+
+# ---------- Choose Excel sheet ----------
 
 excel_file = pd.ExcelFile(uploaded)
 
@@ -55,96 +295,129 @@ selected_sheet = st.sidebar.selectbox(
     excel_file.sheet_names
 )
 
-# ---------- Column Mapping ----------
+
+# ---------- Read raw data ----------
 
 raw_df = pd.read_excel(
     uploaded,
     sheet_name=selected_sheet
 )
 
-st.sidebar.subheader("Match Your Columns")
 
-available_columns = ["— Not available —"] + list(raw_df.columns)
+# ---------- Automatically detect columns ----------
 
-date_column = st.sidebar.selectbox(
-    "Date column",
-    available_columns
+detected = detect_columns(raw_df)
+
+
+# ---------- Show detected columns ----------
+
+st.sidebar.subheader("Detected Columns")
+
+st.sidebar.write(
+    f"📅 Date: `{detected['date'] or 'Not found'}`"
 )
 
-time_column = st.sidebar.selectbox(
-    "Time column",
-    available_columns
+st.sidebar.write(
+    f"🕐 Time: `{detected['time'] or 'Not found'}`"
 )
 
-orders_column = st.sidebar.selectbox(
-    "Orders column",
-    available_columns
+st.sidebar.write(
+    f"📦 Orders: `{detected['orders'] or 'Not found'}`"
 )
 
-items_column = st.sidebar.selectbox(
-    "Items per order column",
-    available_columns
+st.sidebar.write(
+    f"🛍️ Items: `{detected['items'] or 'Not found'}`"
 )
 
-bump_column = st.sidebar.selectbox(
-    "Bump time column",
-    available_columns
+st.sidebar.write(
+    f"⏱️ Bump time: `{detected['bump'] or 'Not found'}`"
 )
 
-# ---------- Standardize selected columns ----------
 
-if date_column == "— Not available —" or orders_column == "— Not available —":
-    st.warning("Please select at least a Date column and an Orders column.")
+# ---------- Prepare standardized data ----------
+
+df, data_error = prepare_data(
+    raw_df,
+    detected
+)
+
+if data_error:
+
+    st.error(data_error)
+
+    st.write(
+        "Columns found in this sheet:"
+    )
+
+    st.write(
+        list(raw_df.columns)
+    )
+
     st.stop()
 
-df = raw_df.copy()
 
-df["Date"] = pd.to_datetime(
-    df[date_column],
-    errors="coerce"
+# ---------- Data quality ----------
+
+st.sidebar.subheader("Data Check")
+
+st.sidebar.success(
+    f"✓ {len(df):,} usable rows"
 )
 
-df["Number_Of_Orders"] = pd.to_numeric(
-    df[orders_column],
-    errors="coerce"
-).fillna(0)
+invalid_dates = len(raw_df) - len(df)
 
-if items_column != "— Not available —":
-    df["Avg_No_Items"] = pd.to_numeric(
-        df[items_column],
-        errors="coerce"
+if invalid_dates > 0:
+
+    st.sidebar.warning(
+        f"⚠ {invalid_dates:,} rows have invalid or missing dates."
     )
-else:
-    df["Avg_No_Items"] = None
 
-if bump_column != "— Not available —":
-    df["Avg_Bump_Time"] = pd.to_numeric(
-        df[bump_column],
-        errors="coerce"
+
+# ---------- Outlier detection ----------
+
+df["Is_Bump_Outlier"] = False
+
+if df["Avg_Bump_Time"].notna().sum() >= 5:
+
+    q1 = df["Avg_Bump_Time"].quantile(0.25)
+    q3 = df["Avg_Bump_Time"].quantile(0.75)
+
+    iqr = q3 - q1
+
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+
+    df["Is_Bump_Outlier"] = (
+        (df["Avg_Bump_Time"] < lower_bound) |
+        (df["Avg_Bump_Time"] > upper_bound)
     )
-else:
-    df["Avg_Bump_Time"] = None
 
-if time_column != "— Not available —":
-    df["Time_Period"] = df[time_column].astype(str)
-else:
-    df["Time_Period"] = ""
-
-df["Day_Of_Week"] = df["Date"].dt.day_name().str[:3]
-
-df["Hour"] = pd.to_numeric(
-    df["Time_Period"]
-    .str.extract(r"(\d+):\d+")[0],
-    errors="coerce"
+outlier_count = int(
+    df["Is_Bump_Outlier"].sum()
 )
 
-df["Hour"] = df["Hour"].fillna(0).astype(int)
+if outlier_count > 0:
 
-df["Month"] = df["Date"].dt.strftime("%b")
-df["Month_Num"] = df["Date"].dt.month
-df["Date_Label"] = df["Date"].dt.strftime("%b %d, %Y")
+    st.sidebar.warning(
+        f"⚠ {outlier_count:,} potential bump-time outliers"
+    )
 
-df = df.dropna(subset=["Date"])
+    include_outliers = st.sidebar.checkbox(
+        "Include potential outliers",
+        value=True
+    )
+
+    if not include_outliers:
+
+        df = df[
+            ~df["Is_Bump_Outlier"]
+        ].copy()
+
+else:
+
+    st.sidebar.success(
+        "✓ No obvious bump-time outliers"
+    )
 
 
 # ---------- Sidebar ----------
