@@ -308,37 +308,67 @@ raw_df = pd.read_excel(
 
 detected = detect_columns(raw_df)
 
+# ---------- Data Mapping ----------
 
-# ---------- Show detected columns ----------
+st.sidebar.subheader("🔧 Data Mapping")
 
-st.sidebar.subheader("Detected Columns")
+available_columns = [
+    "— Not available —"
+] + list(raw_df.columns)
 
-st.sidebar.write(
-    f"📅 Date: `{detected['date'] or 'Not found'}`"
+
+def mapping_dropdown(label, detected_column):
+    if detected_column in available_columns:
+        default_index = available_columns.index(detected_column)
+    else:
+        default_index = 0
+
+    return st.sidebar.selectbox(
+        label,
+        available_columns,
+        index=default_index
+    )
+
+
+date_column = mapping_dropdown(
+    "📅 Date",
+    detected["date"]
 )
 
-st.sidebar.write(
-    f"🕐 Time: `{detected['time'] or 'Not found'}`"
+time_column = mapping_dropdown(
+    "🕐 Time",
+    detected["time"]
 )
 
-st.sidebar.write(
-    f"📦 Orders: `{detected['orders'] or 'Not found'}`"
+orders_column = mapping_dropdown(
+    "📦 Orders",
+    detected["orders"]
 )
 
-st.sidebar.write(
-    f"🛍️ Items: `{detected['items'] or 'Not found'}`"
+items_column = mapping_dropdown(
+    "🛍️ Items per Order",
+    detected["items"]
 )
 
-st.sidebar.write(
-    f"⏱️ Bump time: `{detected['bump'] or 'Not found'}`"
+bump_column = mapping_dropdown(
+    "⏱️ Bump Time",
+    detected["bump"]
 )
 
 
 # ---------- Prepare standardized data ----------
 
+selected_columns = {
+    "date": None if date_column == "— Not available —" else date_column,
+    "time": None if time_column == "— Not available —" else time_column,
+    "orders": None if orders_column == "— Not available —" else orders_column,
+    "items": None if items_column == "— Not available —" else items_column,
+    "bump": None if bump_column == "— Not available —" else bump_column,
+}
+
 df, data_error = prepare_data(
     raw_df,
-    detected
+    selected_columns
 )
 
 if data_error:
