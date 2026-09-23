@@ -218,9 +218,45 @@ def prepare_data(df, detected):
 
         data["Avg_No_Items"] = pd.NA
 
-    # ---------- Bump time ----------
 
-    bump_col = detected["bump"]
+    # ---------- Bump / Ticket Time ----------
+
+if detected.get("bump_method") == "Calculate from timestamps":
+
+    start_col = detected.get("start_timestamp")
+    end_col = detected.get("end_timestamp")
+
+    if start_col is not None and end_col is not None:
+
+        start_time = pd.to_datetime(
+            data[start_col],
+            errors="coerce"
+        )
+
+        end_time = pd.to_datetime(
+            data[end_col],
+            errors="coerce"
+        )
+
+        # Calculate duration in seconds
+        duration = (
+            end_time - start_time
+        ).dt.total_seconds()
+
+        # Negative durations are invalid
+        duration = duration.where(
+            duration >= 0
+        )
+
+        data["Avg_Bump_Time"] = duration
+
+    else:
+
+        data["Avg_Bump_Time"] = pd.NA
+
+else:
+
+    bump_col = detected.get("bump")
 
     if bump_col is not None:
 
@@ -350,20 +386,91 @@ items_column = mapping_dropdown(
     detected["items"]
 )
 
-bump_column = mapping_dropdown(
-    "⏱️ Bump Time",
-    detected["bump"]
+# ---------- Bump / Ticket Time ----------
+
+st.sidebar.markdown("### ⏱️ Bump / Ticket Time")
+
+bump_method = st.sidebar.radio(
+    "How should this be calculated?",
+    [
+        "Use existing column",
+        "Calculate from timestamps"
+    ]
 )
+
+if bump_method == "Use existing column":
+
+    bump_column = mapping_dropdown(
+        "Existing bump/time column",
+        detected["bump"]
+    )
+
+    start_timestamp_column = None
+    end_timestamp_column = None
+
+else:
+
+    bump_column = None
+
+    start_timestamp_column = mapping_dropdown(
+        "Start timestamp",
+        None
+    )
+
+    end_timestamp_column = mapping_dropdown(
+        "End timestamp",
+        None
+    )
 
 
 # ---------- Prepare standardized data ----------
 
+# ---------- Prepare standardized data ----------
+
 selected_columns = {
-    "date": None if date_column == "— Not available —" else date_column,
-    "time": None if time_column == "— Not available —" else time_column,
-    "orders": None if orders_column == "— Not available —" else orders_column,
-    "items": None if items_column == "— Not available —" else items_column,
-    "bump": None if bump_column == "— Not available —" else bump_column,
+    "date": (
+        None
+        if date_column == "— Not available —"
+        else date_column
+    ),
+
+    "time": (
+        None
+        if time_column == "— Not available —"
+        else time_column
+    ),
+
+    "orders": (
+        None
+        if orders_column == "— Not available —"
+        else orders_column
+    ),
+
+    "items": (
+        None
+        if items_column == "— Not available —"
+        else items_column
+    ),
+
+    "bump": (
+        None
+        if bump_column == "— Not available —"
+        else bump_column
+    ),
+
+    "bump_method": bump_method,
+
+    "start_timestamp": (
+        None
+        if start_timestamp_column == "— Not available —"
+        else start_timestamp_column
+    ),
+
+    "end_timestamp": (
+        None
+        if end_timestamp_column == "— Not available —"
+        else end_timestamp_column
+    ),
 }
 
 df, data_error = prepare_data(
