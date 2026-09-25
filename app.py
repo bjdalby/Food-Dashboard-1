@@ -221,53 +221,53 @@ def prepare_data(df, detected):
 
     # ---------- Bump / Ticket Time ----------
 
-if detected.get("bump_method") == "Calculate from timestamps":
+    if detected.get("bump_method") == "Calculate from timestamps":
 
-    start_col = detected.get("start_timestamp")
-    end_col = detected.get("end_timestamp")
+        start_col = detected.get("start_timestamp")
+        end_col = detected.get("end_timestamp")
 
-    if start_col is not None and end_col is not None:
+        if start_col is not None and end_col is not None:
 
-        start_time = pd.to_datetime(
-            data[start_col],
-            errors="coerce"
-        )
+            start_time = pd.to_datetime(
+                data[start_col],
+                errors="coerce"
+            )
 
-        end_time = pd.to_datetime(
-            data[end_col],
-            errors="coerce"
-        )
+            end_time = pd.to_datetime(
+                data[end_col],
+                errors="coerce"
+            )
 
-        # Calculate duration in seconds
-        duration = (
-            end_time - start_time
-        ).dt.total_seconds()
+            # Calculate duration in seconds
+            duration = (
+                end_time - start_time
+            ).dt.total_seconds()
 
-        # Negative durations are invalid
-        duration = duration.where(
-            duration >= 0
-        )
+            # Negative durations are invalid
+            duration = duration.where(
+                duration >= 0
+            )
 
-        data["Avg_Bump_Time"] = duration
+            data["Avg_Bump_Time"] = duration
 
-    else:
+        else:
 
-        data["Avg_Bump_Time"] = pd.NA
-
-else:
-
-    bump_col = detected.get("bump")
-
-    if bump_col is not None:
-
-        data["Avg_Bump_Time"] = pd.to_numeric(
-            data[bump_col],
-            errors="coerce"
-        )
+            data["Avg_Bump_Time"] = pd.NA
 
     else:
 
-        data["Avg_Bump_Time"] = pd.NA
+        bump_col = detected.get("bump")
+
+        if bump_col is not None:
+
+            data["Avg_Bump_Time"] = pd.to_numeric(
+                data[bump_col],
+                errors="coerce"
+            )
+
+        else:
+
+            data["Avg_Bump_Time"] = pd.NA
 
     # ---------- Standard dashboard columns ----------
 
