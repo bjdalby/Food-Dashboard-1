@@ -688,7 +688,7 @@ perf = filtered.groupby("Hour", as_index=False).agg(
     Avg_Bump_Time=("Avg_Bump_Time", "mean"),
     Orders=("Number_Of_Orders", "sum"),
 )
-perf["Avg Bump Time (min)"] = perf["Avg_Bump_Time"]
+perf["Avg Bump Time (min)"] = perf["Avg_Bump_Time"] /60
 perf["Hour Label"] = perf["Hour"].astype(str) + ":00"
 
 fig = px.line(
