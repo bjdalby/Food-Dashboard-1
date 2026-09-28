@@ -263,7 +263,7 @@ def prepare_data(df, detected):
             data["Avg_Bump_Time"] = pd.to_numeric(
                 data[bump_col],
                 errors="coerce"
-            )
+            ) *60
 
         else:
 
