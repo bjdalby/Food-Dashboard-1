@@ -627,16 +627,23 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
-    daily = filtered.groupby("Date", as_index=False)["Number_Of_Orders"].sum()
-    fig = px.line(
-        daily,
-        x="Date",
-        y="Number_Of_Orders",
-        markers=True,
-        title="Orders Over Time",
-        labels={"Date": "Date", "Number_Of_Orders": "Orders"},
+    plot_data = filtered.copy()
+    plot_data["Ticket_Time_Minutes"] = (
+        plot_data["Avg_Bump_Time"] / 60
     )
-    fig.update_layout(height=360, margin=dict(l=20, r=20, t=55, b=20))
+
+    fig = px.scatter(
+        plot_data,
+        x="Number_Of_Orders",
+        y="Ticket_Time_Minutes",
+         hover_data=["Hour"],
+        labels={
+            "Number_Of_Orders": "Orders",
+            "Ticket_Time_Minutes": "Average Ticket Time (minutes)"
+        },
+        title="Orders vs. Ticket Time"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 with right:
