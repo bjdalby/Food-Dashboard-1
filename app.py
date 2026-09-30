@@ -627,34 +627,54 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
+    # Calculate ticket time from the two timestamps
+    plot_data = filtered.copy()
+
+    plot_data["Ticket_Time_Seconds"] = (
+        pd.to_datetime(plot_data["Completed Date/Time"], errors="coerce")
+        - pd.to_datetime(plot_data["Transaction Start Date/Time"], errors="coerce")
+    ).dt.total_seconds()
+
+    # Create 15-minute time periods
+    plot_data["Time_Period"] = (
+        pd.to_datetime(
+            plot_data["Transaction Start Date/Time"],
+            errors="coerce"
+        ).dt.floor("15min")
+    )
+
+    # Calculate orders and average ticket time for each period
     volume_vs_time = (
-        filtered.groupby("Hour", as_index=False)
+        plot_data
+        .dropna(subset=["Time_Period", "Ticket_Time_Seconds"])
+        .groupby("Time_Period", as_index=False)
         .agg(
-            Orders=("Number_Of_Orders", "sum"),
-            Avg_Ticket_Time=("Avg_Bump_Time", "mean"),
+            Orders=("Ticket_Time_Seconds", "size"),
+            Avg_Ticket_Time_Seconds=("Ticket_Time_Seconds", "mean")
         )
     )
 
+    # Convert seconds to minutes for the graph
     volume_vs_time["Ticket_Time_Minutes"] = (
-        volume_vs_time["Avg_Ticket_Time"] / 60
-    )
-
-    volume_vs_time["Hour Label"] = (
-        volume_vs_time["Hour"].astype(str) + ":00"
+        volume_vs_time["Avg_Ticket_Time_Seconds"] / 60
     )
 
     fig = px.scatter(
         volume_vs_time,
         x="Orders",
         y="Ticket_Time_Minutes",
-        hover_data=["Hour Label"],
-        trendline="ols",
+        hover_data={
+            "Time_Period": True,
+            "Orders": True,
+            "Ticket_Time_Minutes": ":.1f",
+            "Avg_Ticket_Time_Seconds": False
+        },
         title="Order Volume vs. Ticket Time",
         labels={
-            "Orders": "Orders During Hour",
+            "Orders": "Orders During 15-Minute Period",
             "Ticket_Time_Minutes": "Average Ticket Time (minutes)",
-            "Hour Label": "Hour",
-        },
+            "Time_Period": "Time Period"
+        }
     )
 
     fig.update_layout(
