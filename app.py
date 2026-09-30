@@ -627,34 +627,21 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
-    # Calculate ticket time from the two timestamps
-    plot_data = filtered.copy()
-
-    plot_data["Ticket_Time_Seconds"] = (
-        pd.to_datetime(plot_data["Completed Date/Time"], errors="coerce")
-        - pd.to_datetime(plot_data["Transaction Start Date/Time"], errors="coerce")
-    ).dt.total_seconds()
-
-    # Create 15-minute time periods
-    plot_data["Time_Period"] = (
-        pd.to_datetime(
-            plot_data["Transaction Start Date/Time"],
-            errors="coerce"
-        ).dt.floor("15min")
-    )
-
-    # Calculate orders and average ticket time for each period
+    # Group orders into 15-minute periods
     volume_vs_time = (
-        plot_data
-        .dropna(subset=["Time_Period", "Ticket_Time_Seconds"])
+        filtered.assign(
+            Time_Period=filtered["Date"] + pd.to_timedelta(
+                filtered["Hour"], unit="h"
+            )
+        )
         .groupby("Time_Period", as_index=False)
         .agg(
-            Orders=("Ticket_Time_Seconds", "size"),
-            Avg_Ticket_Time_Seconds=("Ticket_Time_Seconds", "mean")
+            Orders=("Number_Of_Orders", "sum"),
+            Avg_Ticket_Time_Seconds=("Avg_Bump_Time", "mean")
         )
     )
 
-    # Convert seconds to minutes for the graph
+    # Convert seconds to minutes only for the graph
     volume_vs_time["Ticket_Time_Minutes"] = (
         volume_vs_time["Avg_Ticket_Time_Seconds"] / 60
     )
@@ -671,7 +658,7 @@ with left:
         },
         title="Order Volume vs. Ticket Time",
         labels={
-            "Orders": "Orders During 15-Minute Period",
+            "Orders": "Orders During Time Period",
             "Ticket_Time_Minutes": "Average Ticket Time (minutes)",
             "Time_Period": "Time Period"
         }
