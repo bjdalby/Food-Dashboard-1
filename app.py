@@ -626,46 +626,52 @@ st.divider()
 # ---------- Overview charts ----------
 left, right = st.columns(2)
 
+# ---------- Average Ticket Time by Day ----------
+
 with left:
-    # Group orders into 15-minute periods
-    volume_vs_time = (
-        filtered.assign(
-            Time_Period=filtered["Date"] + pd.to_timedelta(
-                filtered["Hour"], unit="h"
-            )
-        )
-        .groupby("Time_Period", as_index=False)
-        .agg(
-            Orders=("Number_Of_Orders", "sum"),
-            Avg_Ticket_Time_Seconds=("Avg_Bump_Time", "mean")
-        )
+    avg_ticket_by_day = (
+        filtered
+        .dropna(subset=["Avg_Bump_Time"])
+        .groupby("Day_Of_Week", as_index=False)
+        ["Avg_Bump_Time"]
+        .mean()
     )
 
-    # Convert seconds to minutes only for the graph
-    volume_vs_time["Ticket_Time_Minutes"] = (
-        volume_vs_time["Avg_Ticket_Time_Seconds"] / 60
+    # Put days in Monday-Sunday order
+    dow_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    avg_ticket_by_day["Day_Of_Week"] = pd.Categorical(
+        avg_ticket_by_day["Day_Of_Week"],
+        categories=dow_order,
+        ordered=True
     )
 
-    fig = px.scatter(
-        volume_vs_time,
-        x="Orders",
-        y="Ticket_Time_Minutes",
-        hover_data={
-            "Time_Period": True,
-            "Orders": True,
-            "Ticket_Time_Minutes": ":.1f",
-            "Avg_Ticket_Time_Seconds": False
-        },
-        title="Order Volume vs. Ticket Time",
+    avg_ticket_by_day = avg_ticket_by_day.sort_values("Day_Of_Week")
+
+    # Convert seconds to minutes
+    avg_ticket_by_day["Average_Ticket_Time_Minutes"] = (
+        avg_ticket_by_day["Avg_Bump_Time"] / 60
+    )
+
+    fig = px.bar(
+        avg_ticket_by_day,
+        x="Day_Of_Week",
+        y="Average_Ticket_Time_Minutes",
+        title="Average Ticket Time by Day of Week",
         labels={
-            "Orders": "Orders During Time Period",
-            "Ticket_Time_Minutes": "Average Ticket Time (minutes)",
-            "Time_Period": "Time Period"
-        }
+            "Day_Of_Week": "Day",
+            "Average_Ticket_Time_Minutes": "Average Ticket Time (minutes)"
+        },
+        text="Average_Ticket_Time_Minutes"
+    )
+
+    fig.update_traces(
+        texttemplate="%{text:.1f} min",
+        textposition="outside"
     )
 
     fig.update_layout(
-        height=360,
+        height=340,
         margin=dict(l=20, r=20, t=55, b=20)
     )
 
