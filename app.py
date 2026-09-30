@@ -627,21 +627,39 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
-    plot_data = filtered.copy()
-    plot_data["Ticket_Time_Minutes"] = (
-        plot_data["Avg_Bump_Time"] / 60
+    volume_vs_time = (
+        filtered.groupby("Hour", as_index=False)
+        .agg(
+            Orders=("Number_Of_Orders", "sum"),
+            Avg_Ticket_Time=("Avg_Bump_Time", "mean"),
+        )
+    )
+
+    volume_vs_time["Ticket_Time_Minutes"] = (
+        volume_vs_time["Avg_Ticket_Time"] / 60
+    )
+
+    volume_vs_time["Hour Label"] = (
+        volume_vs_time["Hour"].astype(str) + ":00"
     )
 
     fig = px.scatter(
-        plot_data,
-        x="Number_Of_Orders",
+        volume_vs_time,
+        x="Orders",
         y="Ticket_Time_Minutes",
-         hover_data=["Hour"],
+        hover_data=["Hour Label"],
+        trendline="ols",
+        title="Order Volume vs. Ticket Time",
         labels={
-            "Number_Of_Orders": "Orders",
-            "Ticket_Time_Minutes": "Average Ticket Time (minutes)"
+            "Orders": "Orders During Hour",
+            "Ticket_Time_Minutes": "Average Ticket Time (minutes)",
+            "Hour Label": "Hour",
         },
-        title="Orders vs. Ticket Time"
+    )
+
+    fig.update_layout(
+        height=360,
+        margin=dict(l=20, r=20, t=55, b=20)
     )
 
     st.plotly_chart(fig, use_container_width=True)
