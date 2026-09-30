@@ -581,8 +581,6 @@ hour_values = sorted(df["Hour"].dropna().unique().tolist())
 hour_options = ["All"] + [int(h) for h in hour_values]
 selected_hour = st.sidebar.selectbox("Hour", hour_options)
 
-view = st.sidebar.radio("Time resolution", ["15-minute", "Daily"])
-
 filtered = df[
     (df["Date"].dt.date >= start_date) &
     (df["Date"].dt.date <= end_date)
@@ -740,33 +738,6 @@ fig = px.line(
 fig.update_layout(height=350, margin=dict(l=20, r=20, t=55, b=20))
 st.plotly_chart(fig, use_container_width=True)
 
-# ---------- Automatic observations ----------
-st.subheader("Key Observations")
-
-obs = []
-
-hour_totals = filtered.groupby("Hour")["Number_Of_Orders"].sum()
-if not hour_totals.empty:
-    busiest_hour = int(hour_totals.idxmax())
-    busiest_orders = hour_totals.max()
-    share = busiest_orders / total_orders * 100 if total_orders else 0
-    obs.append(f"**Peak ordering period:** {busiest_hour}:00 had the most orders ({busiest_orders:,.0f}, about {share:.1f}% of filtered orders).")
-
-day_totals = filtered.groupby("Day_Of_Week")["Number_Of_Orders"].sum()
-if not day_totals.empty:
-    busiest_day = day_totals.idxmax()
-    obs.append(f"**Busiest day:** {busiest_day} generated {day_totals.max():,.0f} orders in the selected period.")
-
-if len(hour_totals) >= 2:
-    slowest_hour = int(hour_totals.idxmin())
-    obs.append(f"**Lowest-volume hour:** {slowest_hour}:00 had the fewest orders ({hour_totals.min():,.0f}).")
-
-if not perf.empty:
-    worst_bump = perf.loc[perf["Avg_Bump_Time"].idxmax()]
-    obs.append(f"**Longest average bump time:** {int(worst_bump['Hour'])}:00 averaged {fmt_seconds(worst_bump['Avg_Bump_Time'])}.")
-
-for x in obs:
-    st.markdown("• " + x)
 
 # ---------- Raw data ----------
 with st.expander("View filtered data"):
