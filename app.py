@@ -742,5 +742,3 @@ st.plotly_chart(fig, use_container_width=True)
 # ---------- Raw data ----------
 with st.expander("View filtered data"):
     st.dataframe(filtered, use_container_width=True, hide_index=True)
-
-st.caption("Built from the workbook's 'Actually Cleaned Data' sheet. The dashboard is designed so a standardized restaurant dataset can be swapped in later.")
