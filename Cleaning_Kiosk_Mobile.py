@@ -156,10 +156,9 @@ def process_pipeline(raw_data_path, kiosk_data_path):
 
     df_complete['Interval_Start'] = df_complete['DateTime'].dt.floor('15min')
 
-    # Define the aggregation logic
+    # Define the aggregation logic (without Avg_No_Items)
     agg_funcs = {
         'TransactionDate': 'size',   # Number_Of_Orders
-        'SwipeCount': 'mean',        # Avg_No_Items
         'Elapsed_Time': ['mean', 'min', 'max']
     }
 
@@ -168,7 +167,6 @@ def process_pipeline(raw_data_path, kiosk_data_path):
         'Interval_Start',
         'Location',
         'Number_Of_Orders',
-        'Avg_No_Items',
         'Avg_Bump_Time',
         'Low_Bump',
         'High_Bump'
@@ -178,7 +176,6 @@ def process_pipeline(raw_data_path, kiosk_data_path):
     df_grouped['Avg_Bump_Time'] = df_grouped['Avg_Bump_Time'].fillna(0).round().astype(int)
     df_grouped['Low_Bump'] = df_grouped['Low_Bump'].fillna(0).round().astype(int)
     df_grouped['High_Bump'] = df_grouped['High_Bump'].fillna(0).round().astype(int)
-    df_grouped['Avg_No_Items'] = 'N/A'
 
     # Format extra time/day columns
     df_grouped['Date'] = df_grouped['Interval_Start'].dt.strftime('%-m/%-d/%Y')
@@ -188,8 +185,8 @@ def process_pipeline(raw_data_path, kiosk_data_path):
     df_grouped['Days'] = df_grouped['Interval_Start'].dt.strftime('%a')
     df_grouped['Order_Type'] = 'Mobile'
 
-    # Order columns
-    final_cols = ['Date', 'Time_Period', 'Number_Of_Orders', 'Avg_No_Items', 'Avg_Bump_Time', 'Low_Bump', 'High_Bump', 'Days', 'Location', 'Order_Type']
+    # Order columns (removed 'Avg_No_Items')
+    final_cols = ['Date', 'Time_Period', 'Number_Of_Orders', 'Avg_Bump_Time', 'Low_Bump', 'High_Bump', 'Days', 'Location', 'Order_Type']
     df_formatted = df_grouped[final_cols]
 
     # Save to Mobile_15.csv
@@ -201,6 +198,10 @@ def process_pipeline(raw_data_path, kiosk_data_path):
         print("\nStarting Step 3: Appending Kiosk Data...")
         df_mobile = pd.read_csv('Mobile_15.csv')
         df_kiosk = pd.read_csv(kiosk_data_path)
+
+        # In case the kiosk dataset has 'Avg_No_Items', we drop it if it exists
+        if 'Avg_No_Items' in df_kiosk.columns:
+            df_kiosk = df_kiosk.drop(columns=['Avg_No_Items'])
 
         df_complete_orders = pd.concat([df_mobile, df_kiosk], ignore_index=True)
         df_complete_orders.to_csv('Complete_Orders.csv', index=False)
